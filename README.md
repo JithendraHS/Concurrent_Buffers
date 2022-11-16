@@ -28,7 +28,7 @@ Using your Lab 2 counter micro-benchmark, implement a strictly LIFO lock --- the
 ## Lab write-up:
 Your lab write-up, called `WRITEUP.md` should include:
 * Experimental results as required by the prompt
-* Analysis of results using \pcode{perf} as necessary to support explanations
+* Analysis of results using `perf` as necessary to support explanations
 * A description of your code organization
 * A description of every file submitted
 * Compilation instructions
