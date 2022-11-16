@@ -17,7 +17,6 @@ Your options are:
 ### Concurrent Ordered Map (250 pts)
 Implement a key-value store implemented as either a sorted tree or skip list.  Your structure should use fine-grained synchronization (no global lock, the recommendation is to use hand-over-hand locking), and be linearizable. The structure should support `get`, `put`, and `delete`, as well range queries that take two keys and return the key/value pairs between them (range queries need not be linearizable, but you should be able to describe what values might be seen).  Your data structure should not leak memory.  Your write-up should include experimental explorations across high contention (many threads accessing the same key) and low contention (uniform access pattern) cases.  *For an additional 50 pts*, implement the same tree using reader-writer locks such that readers can execute in parallel, and compare the performance.
 
-
 ### Concurrent Containers (250 pts)
 Implement several concurrent stack and queue algorithms, including a SGL stack and queue, the Treiber stack, and the M&S queue. You must also implement one of the following (or, *for an additional 50 points*, both): (1) all the above stacks with an [elimination] (https://people.csail.mit.edu/shanir/publications/Lock_Free.pdf), (2) a [flat-combining stack and queue] (http://mcg.cs.tau.ac.il/papers/spaa2010-fc.pdf). Your implementations are allowed to leak memory. Your write-up should include experimental explorations of data structure throughput across varying thread counts.
 
