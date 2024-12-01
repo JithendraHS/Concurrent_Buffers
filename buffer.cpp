@@ -1,53 +1,61 @@
 #include "buffer.hpp"
 
-stack::stack(){
-    top = nullptr;
-    bottom = nullptr;
+// Constructor for stack
+stack::stack() {
+    top = nullptr;    // Initialize the top pointer to null (empty stack)
+    bottom = nullptr; // Initialize the bottom pointer to null (empty stack)
 }
 
-void stack::push(int element){
-    stack_node * temp = new stack_node();
-    temp->element = element;
-    temp->next = top;
-    top = temp;
+// Push an element onto the stack
+void stack::push(int element) {
+    // Create a new node for the stack
+    stack_node *temp = new stack_node();
+    temp->element = element; // Assign the value to the new node
+    temp->next = top;        // Point the new node to the current top
+    top = temp;              // Update the top pointer to the new node
 }
 
-int stack::pop(){
-    stack_node * temp = top;
-    int element = temp->element;
-    top = top->next;
-    delete temp;
-    return element;
+// Pop an element from the stack and return its value
+int stack::pop() {
+    stack_node *temp = top;  // Save the current top node
+    int element = temp->element; // Retrieve the value of the top node
+    top = top->next;         // Move the top pointer to the next node
+    delete temp;             // Free the memory of the removed node
+    return element;          // Return the value of the removed node
 }
 
-queue::queue(){
-    head = nullptr;
-    tail = nullptr;
+// Constructor for queue
+queue::queue() {
+    head = nullptr; // Initialize the head pointer to null (empty queue)
+    tail = nullptr; // Initialize the tail pointer to null (empty queue)
 }
 
-void queue::insert(int element){
-    queue_node * temp = new queue_node();
-    temp->element = element;
-    temp->right = tail;
-    if(tail){
-        tail->left = temp;
+// Insert an element at the end of the queue
+void queue::insert(int element) {
+    // Create a new node for the queue
+    queue_node *temp = new queue_node();
+    temp->element = element; // Assign the value to the new node
+    temp->right = tail;      // Link the new node to the current tail
+    if (tail) {
+        tail->left = temp;   // Update the left pointer of the current tail
     }
-    temp->left = nullptr;
-    if(tail == nullptr && head == nullptr){
-        head = temp;
+    temp->left = nullptr;    // The new node's left pointer is null
+    if (tail == nullptr && head == nullptr) {
+        head = temp;         // If the queue is empty, the new node becomes the head
     }
-    tail = temp;
+    tail = temp;             // Update the tail pointer to the new node
 }
 
-int queue::remove(){
-    queue_node * temp = head;
-    int element = temp->element;
-    head = head->left;
+// Remove an element from the front of the queue and return its value
+int queue::remove() {
+    queue_node *temp = head; // Save the current head node
+    int element = temp->element; // Retrieve the value of the head node
+    head = head->left;       // Move the head pointer to the next node
     if (head) {
-        head->right = nullptr;
+        head->right = nullptr; // Disconnect the removed node from the queue
     } else {
-        tail = nullptr;
+        tail = nullptr;       // If the queue becomes empty, reset the tail pointer
     }
-    delete temp;
-    return element;
+    delete temp;             // Free the memory of the removed node
+    return element;          // Return the value of the removed node
 }

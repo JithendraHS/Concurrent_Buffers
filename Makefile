@@ -2,7 +2,7 @@
 CC = g++-11
 CFLAGS = -Wall -Werror --std=c++20 -pthread
 
-SOURCES = concurrent_containers.cpp command_handling.cpp buffer.hpp buffer.cpp
+SOURCES = concurrent_containers.cpp command_handling.cpp buffer.cpp parallelized_code.cpp
 OBJS = $(SOURCES:.cpp=.o)
 TARGET = container
 RM_FILES = $(OBJS:.o=)
