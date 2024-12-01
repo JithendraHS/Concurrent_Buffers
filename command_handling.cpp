@@ -69,7 +69,7 @@ int command_handle(int argc, char *argv[], command_param * ch) {
                 break;
             case 'h':  // Display usage information
                 cout << "Usage: " << argv[0]
-                     << " container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,m&s>] [--pop=<pop_count>]"
+                     << " container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,mns>] [--pop=<pop_count>]"
                      << endl;
                 cout << "--name : print the developer name" << endl;
                 cout << "-i : file containing elements to insert into stack or queue" << endl;
@@ -82,7 +82,7 @@ int command_handle(int argc, char *argv[], command_param * ch) {
                 break;
             default:  // If an unknown option is passed, display usage information
                 cout << "Usage: " << argv[0]
-                     << " container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,m&s>] [--pop=<pop_count>]"
+                     << " container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,mns>] [--pop=<pop_count>]"
                      << endl;
                 return EXIT_FAILURE;  // Exit with failure status
         }
@@ -92,7 +92,7 @@ int command_handle(int argc, char *argv[], command_param * ch) {
     if (!ch->source_file || (!ch->stack && !ch->queue)) {
         cout << "All parameters not specified correctly, please check and try again!!!" << endl;
         cout << "Usage: " << argv[0]
-             << " container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,m&s>] [--pop=<pop_count>]" << endl;
+             << " container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,mns>] [--pop=<pop_count>]" << endl;
         return EXIT_FAILURE;  // Exit with failure status
     }
 

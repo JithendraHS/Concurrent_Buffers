@@ -8,3 +8,6 @@ void insert_sgl(ifstream &fptr_src, int thread_id, int buffer_type); // Insert e
 void delete_sgl(ofstream &fptr_out, int thread_id, int buffer_type); // Delete elements from the buffer (stack or queue) and write to the output file
 void insert_treiber(ifstream &fptr_src, int thread_id, int buffer_type);
 void delete_treiber(ofstream &fptr_out, int thread_id, int buffer_type);
+
+void insert_mns(ifstream &fptr_src, int thread_id, int buffer_type);
+void delete_mns(ofstream &fptr_out, int thread_id, int buffer_type);

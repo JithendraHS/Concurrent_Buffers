@@ -11,6 +11,7 @@ stack stack_buffer;
 queue queue_buffer;
 
 treiber_stack trieber_stack_buffer;
+mns_queue mns_queue_buffer;
 
 // Atomic flag to indicate whether the file reading is complete
 atomic<bool> read_complete = false;
@@ -135,6 +136,42 @@ void delete_treiber(ofstream &fptr_out, int thread_id, int buffer_type) {
             int element;
             bool state = trieber_stack_buffer.pop(element);
             // Pop an element from the stack and write it to the output file
+            if(state) fptr_out << element << "\n";
+        } else {
+          // If the stack is empty but reading is not complete, continue waiting
+            if (!read_complete.load(ACQ)) {
+                continue;
+            }
+                // Exit the loop if reading is complete and the stack is empty
+            break;
+        }
+    }
+}
+
+void insert_mns(ifstream &fptr_src, int thread_id, int buffer_type) {
+    string line;
+    while (true) {        
+        // Attempt to read a line from the input file
+        if (getline(fptr_src, line)) {
+            mns_queue_buffer.insert(atoi(line.c_str())); // Convert string to integer and push to stack
+            // Debugging/logging: Print the thread ID
+            cout << thread_id << ">" << line.c_str() << endl;
+        } else {
+            // If the file reading is complete, update the atomic flag and exit the loop
+            read_complete.store(true, REL);
+            break;
+        }
+    }
+}
+
+void delete_mns(ofstream &fptr_out, int thread_id, int buffer_type) {
+    while (true) {
+        // Check if the stack is not empty
+        if (mns_queue_buffer.head.load(ACQ) != mns_queue_buffer.tail.load(ACQ)) {
+            int element;
+            bool state = mns_queue_buffer.remove(element);
+            // Pop an element from the stack and write it to the output file 
+            cout << thread_id << "<" << element << endl;
             if(state) fptr_out << element << "\n";
         } else {
           // If the stack is empty but reading is not complete, continue waiting

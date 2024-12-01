@@ -49,3 +49,12 @@ class treiber_stack{
         void push(int element);
         bool pop(int &element);
 };
+
+class mns_queue{
+    public:
+        atomic<queue_node *>head;
+        atomic<queue_node *>tail;
+        mns_queue();
+        void insert(int element);
+        bool remove(int &element);
+};

@@ -1,4 +1,5 @@
 #include "buffer.hpp"
+#include <iostream>
 
 template <typename T>
 bool cas(atomic<T> &status, T expected, T desired, memory_order mem_order) {
@@ -84,6 +85,34 @@ bool treiber_stack::pop(int &element){
          temp = top.load(ACQ);
     }
     element = temp->element;
+    delete temp;
+    return true;
+}
+
+mns_queue::mns_queue(){
+    head = new queue_node(0, nullptr);
+    tail.store(head,RELAXED);
+}
+
+void mns_queue::insert(int element){
+    queue_node *temp = new queue_node(element, nullptr);
+    queue_node *last = tail.load(ACQ);
+    last->next = temp;
+    while(!cas(tail,last, temp, ACQ_REL)){
+        last = tail.load(ACQ);
+        last->next = temp;
+    }
+}
+
+bool mns_queue::remove(int &element){
+    queue_node * temp = head.load(ACQ);
+    if(!temp->next){
+        return false;
+    }
+    while(!cas(head, temp, temp->next, ACQ_REL)){
+        temp = head.load(ACQ);
+    }
+    element = temp->next->element;
     delete temp;
     return true;
 }
