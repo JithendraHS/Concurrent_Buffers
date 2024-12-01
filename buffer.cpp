@@ -1,5 +1,13 @@
 #include "buffer.hpp"
 
+template <typename T>
+bool cas(atomic<T> &status, T expected, T desired, memory_order mem_order) {
+    T expected_ref = expected; // Create a reference to the expected value
+    // Attempt to compare and swap 'status' atomically
+    return status.compare_exchange_strong(expected_ref, desired, mem_order);
+}
+
+
 // Constructor for stack
 stack::stack() {
     top = nullptr;    // Initialize the top pointer to null (empty stack)
@@ -58,4 +66,29 @@ int queue::remove() {
     }
     delete temp;             // Free the memory of the removed node
     return element;          // Return the value of the removed node
+}
+
+
+treiber_stack::treiber_stack(){
+     top.store(nullptr, RELAXED);
+     bottom.store(nullptr, RELAXED);
+}
+
+void treiber_stack::push(int element){
+    stack_node * temp = new stack_node();
+    temp->element = element;
+    temp->next = top.load(ACQ);
+    while(!cas(top, temp->next, temp, ACQ_REL)){
+         temp->next = top.load(ACQ);
+    }
+}
+
+int treiber_stack::pop(){
+    stack_node * temp = top.load(ACQ);
+    while(!cas(top, temp, temp->next, ACQ_REL)){
+         temp = top.load(ACQ);
+    }
+    int element = temp->element;
+    delete temp;
+    return element;
 }

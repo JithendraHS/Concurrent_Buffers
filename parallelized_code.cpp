@@ -10,6 +10,8 @@ mutex sg_lock;
 stack stack_buffer;
 queue queue_buffer;
 
+treiber_stack trieber_stack_buffer;
+
 // Atomic flag to indicate whether the file reading is complete
 atomic<bool> read_complete = false;
 
@@ -98,6 +100,43 @@ void delete_sgl(ofstream &fptr_out, int thread_id, int buffer_type) {
         else {
             cout << "Incorrect buffer type" << endl;
             return;
+        }
+    }
+}
+
+
+void insert_treiber(ifstream &fptr_src, int thread_id, int buffer_type) {
+    string line;
+    while (true) {        
+        // Debugging/logging: Print the thread ID
+        cout << thread_id << endl;
+        // Attempt to read a line from the input file
+        if (getline(fptr_src, line)) {
+            trieber_stack_buffer.push(atoi(line.c_str())); // Convert string to integer and push to stack
+        } else {
+            // If the file reading is complete, update the atomic flag and exit the loop
+            read_complete.store(true, REL);
+            break;
+        }
+    }
+}
+
+
+void delete_treiber(ofstream &fptr_out, int thread_id, int buffer_type) {
+    while (true) {
+        // Debugging/logging: Print the thread ID
+        cout << thread_id << endl;
+        // Check if the stack is not empty
+        if (trieber_stack_buffer.top != trieber_stack_buffer.bottom) {
+            // Pop an element from the stack and write it to the output file
+            fptr_out << trieber_stack_buffer.pop() << "\n";
+        } else {
+          // If the stack is empty but reading is not complete, continue waiting
+            if (!read_complete.load(ACQ)) {
+                continue;
+            }
+                // Exit the loop if reading is complete and the stack is empty
+            break;
         }
     }
 }

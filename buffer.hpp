@@ -1,4 +1,12 @@
 #include <atomic> // Include atomic for potential atomic operations (not used directly here)
+
+// Memory order definitions for atomic operations
+#define SEQCST (memory_order_seq_cst)        // Sequentially consistent
+#define RELAXED (memory_order_relaxed)      // Relaxed memory order
+#define ACQ (memory_order_acquire)          // Acquire memory order
+#define REL (memory_order_release)           // Release memory order
+#define ACQ_REL (memory_order_acq_rel)      // Acquire-release memory order
+
 #define STACK  (1) // Define a macro for stack buffer type
 #define QUEUE  (2) // Define a macro for queue buffer type
 
@@ -37,4 +45,13 @@ class queue {
         queue();          // Constructor to initialize an empty queue
         void insert(int element); // Insert an element at the tail of the queue
         int remove();             // Remove an element from the head of the queue and return its value
+};
+
+class treiber_stack{
+    public:
+        atomic<stack_node *> top;
+        atomic<stack_node *> bottom;
+        treiber_stack();
+        void push(int element);
+        int pop();
 };

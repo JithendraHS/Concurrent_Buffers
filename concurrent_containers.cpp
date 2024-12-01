@@ -75,12 +75,27 @@ int main(int argc, char *argv[]) {
                 threads[i] = new thread(delete_sgl, ref(fptr_out), i, buffer_type);
             }
         }
-    }
-
-    // Join all threads to ensure the main thread waits for them to complete
+        // Join all threads to ensure the main thread waits for them to complete
     for (unsigned i = 0; i < NUM_THREADS; i++) {
         threads[i]->join();  // Wait for the thread to finish
         delete threads[i];   // Clean up the dynamically allocated thread
+    }
+    }else if((ch->stack && strcmp(ch->stack, "treiber") == 0)){
+         // Create threads for inserting and deleting from the buffer
+        for (unsigned i = 0; i < NUM_THREADS; i++) {
+            if (!(i % 2)) {
+                // Odd threads perform insertion
+                threads[i] = new thread(insert_treiber, ref(fptr_src), i, buffer_type);
+            } else {
+                // Even threads perform deletion
+                threads[i] = new thread(delete_treiber, ref(fptr_out), i, buffer_type);
+            }
+        }
+       // Join all threads to ensure the main thread waits for them to complete
+    for (unsigned i = 0; i < NUM_THREADS; i++) {
+        threads[i]->join();  // Wait for the thread to finish
+        delete threads[i];   // Clean up the dynamically allocated thread
+    }
     }
 
     // Close input and output files
