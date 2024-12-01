@@ -69,9 +69,11 @@ void delete_sgl(ofstream &fptr_out, int thread_id, int buffer_type) {
         // Handle stack buffer operations
         if (buffer_type == STACK) {
             // Check if the stack is not empty
-            if (stack_buffer.top != stack_buffer.bottom) {
+            if (stack_buffer.top) {
+                int element;
+                bool state = stack_buffer.pop(element);
                 // Pop an element from the stack and write it to the output file
-                fptr_out << stack_buffer.pop() << "\n";
+                if (state) fptr_out << element << "\n";
             } else {
                 // If the stack is empty but reading is not complete, continue waiting
                 if (!read_complete.load()) {
@@ -85,8 +87,10 @@ void delete_sgl(ofstream &fptr_out, int thread_id, int buffer_type) {
         else if (buffer_type == QUEUE) {
             // Check if the queue is not empty
             if (queue_buffer.head) {
+                int element;
+                bool state = queue_buffer.remove(element);
                 // Remove an element from the queue and write it to the output file
-                fptr_out << queue_buffer.remove() << "\n";
+                if(state) fptr_out << element << "\n";
             } else {
                 // If the queue is empty but reading is not complete, continue waiting
                 if (!read_complete.load()) {
@@ -127,9 +131,11 @@ void delete_treiber(ofstream &fptr_out, int thread_id, int buffer_type) {
         // Debugging/logging: Print the thread ID
         cout << thread_id << endl;
         // Check if the stack is not empty
-        if (trieber_stack_buffer.top != trieber_stack_buffer.bottom) {
+        if (trieber_stack_buffer.top) {
+            int element;
+            bool state = trieber_stack_buffer.pop(element);
             // Pop an element from the stack and write it to the output file
-            fptr_out << trieber_stack_buffer.pop() << "\n";
+            if(state) fptr_out << element << "\n";
         } else {
           // If the stack is empty but reading is not complete, continue waiting
             if (!read_complete.load(ACQ)) {

@@ -13,28 +13,23 @@
 using namespace std; // Use the standard namespace to avoid prefixing standard library components
 
 // Define a node structure for the stack
-struct stack_node {
-    int element;              // Value stored in the stack node
-    struct stack_node *next;  // Pointer to the next node in the stack
+template <typename T>
+struct node {
+    T element;              // Value stored in the stack node
+    struct node *next;  // Pointer to the next node in the stack
+    node(T element, node* next = nullptr)
+        : element(element), next(next) {}
 };
-typedef struct stack_node stack_node; // Typedef for convenience
-
-// Define a node structure for the queue
-struct queue_node {
-    int element;              // Value stored in the queue node
-    struct queue_node *right; // Pointer to the previous node in the queue (doubly linked list)
-    struct queue_node *left;  // Pointer to the next node in the queue
-};
-typedef struct queue_node queue_node; // Typedef for convenience
+typedef node<int> stack_node; // Typedef for convenience
+typedef node<int> queue_node; // Typedef for convenience
 
 // Stack class for implementing a stack (Last In, First Out - LIFO)
 class stack {
     public:
         stack_node *top;    // Pointer to the top node of the stack
-        stack_node *bottom; // Pointer to the bottom node of the stack (not used in typical stack operations)
         stack();            // Constructor to initialize an empty stack
         void push(int element); // Push an element onto the stack
-        int pop();              // Pop an element from the stack and return its value
+        bool pop(int &element);              // Pop an element from the stack and return its value
 };
 
 // Queue class for implementing a queue (First In, First Out - FIFO)
@@ -44,14 +39,13 @@ class queue {
         queue_node *tail; // Pointer to the tail (rear) of the queue
         queue();          // Constructor to initialize an empty queue
         void insert(int element); // Insert an element at the tail of the queue
-        int remove();             // Remove an element from the head of the queue and return its value
+        bool remove(int &element);             // Remove an element from the head of the queue and return its value
 };
 
 class treiber_stack{
     public:
         atomic<stack_node *> top;
-        atomic<stack_node *> bottom;
         treiber_stack();
         void push(int element);
-        int pop();
+        bool pop(int &element);
 };
