@@ -68,10 +68,8 @@ int command_handle(int argc, char *argv[], command_param * ch) {
                 cout << endl;
                 break;
             case 'h':  // Display usage information
-                cout << "Usage: " << argv[0]
-                     << " container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,mns>] [--pop=<pop_count>]"
+                cout << "Usage: ./container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,mns>] [--pop=<pop_count>]"
                      << endl;
-                cout << "--name : print the developer name" << endl;
                 cout << "-i : file containing elements to insert into stack or queue" << endl;
                 cout << "-o : file to store remaining elements in stack or queue" << endl;
                 cout << "-t : Number of threads for parallelism" << endl;
@@ -81,8 +79,7 @@ int command_handle(int argc, char *argv[], command_param * ch) {
                 return EXIT_FAILURE;  // Exit the program with failure status
                 break;
             default:  // If an unknown option is passed, display usage information
-                cout << "Usage: " << argv[0]
-                     << " container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,mns>] [--pop=<pop_count>]"
+                cout << "Usage: container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,mns>] [--pop=<pop_count>]"
                      << endl;
                 return EXIT_FAILURE;  // Exit with failure status
         }

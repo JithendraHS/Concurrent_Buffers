@@ -112,6 +112,42 @@ int main(int argc, char *argv[]) {
         threads[i]->join();  // Wait for the thread to finish
         delete threads[i];   // Clean up the dynamically allocated thread
     }
+    }else if((ch->stack && strcmp(ch->stack, "treiber_elim") == 0)){
+         // Create threads for inserting and deleting from the buffer
+        for (unsigned i = 0; i < NUM_THREADS; i++) {
+            if (!(i % 2)) {
+                // Odd threads perform insertion
+                threads[i] = new thread(insert_treiber_elim, ref(fptr_src), i, buffer_type);
+            } else {
+                // Even threads perform deletion
+                threads[i] = new thread(delete_treiber_elim, ref(fptr_out), i, buffer_type);
+            }
+        }
+       // Join all threads to ensure the main thread waits for them to complete
+       
+    for (unsigned i = 0; i < NUM_THREADS; i++) {
+        //if (!(i % 2)) {
+            threads[i]->join();  // Wait for the thread to finish
+            delete threads[i];   // Clean up the dynamically allocated thread
+        //}
+    }
+    }else if ((ch->stack && strcmp(ch->stack, "sgl_elim") == 0)) {
+        cout<< "I'm here!!!"<<endl;
+        // Create threads for inserting and deleting from the buffer
+        for (unsigned i = 0; i < NUM_THREADS; i++) {
+            if (!(i % 2)) {
+                // Odd threads perform insertion
+                threads[i] = new thread(insert_sgl_elim, ref(fptr_src), i, buffer_type);
+            } else {
+                // Even threads perform deletion
+                threads[i] = new thread(delete_sgl_elim, ref(fptr_out), i, buffer_type);
+            }
+        }
+        // Join all threads to ensure the main thread waits for them to complete
+    for (unsigned i = 0; i < NUM_THREADS; i++) {
+        threads[i]->join();  // Wait for the thread to finish
+        delete threads[i];   // Clean up the dynamically allocated thread
+    }
     }
 
     // Close input and output files

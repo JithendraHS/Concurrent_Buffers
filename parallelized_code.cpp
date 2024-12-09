@@ -13,6 +13,10 @@ queue queue_buffer;
 treiber_stack trieber_stack_buffer;
 mns_queue mns_queue_buffer;
 
+treiber_stack_elim treiber_stack_elim_buffer(8);
+
+stack_elim stack_elim_buffer(8);
+
 // Atomic flag to indicate whether the file reading is complete
 atomic<bool> read_complete = false;
 
@@ -180,6 +184,99 @@ void delete_mns(ofstream &fptr_out, int thread_id, int buffer_type) {
             }
                 // Exit the loop if reading is complete and the stack is empty
             break;
+        }
+    }
+}
+
+
+
+void insert_treiber_elim(ifstream &fptr_src, int thread_id, int buffer_type) {
+    string line;
+    while (true) {        
+        // Attempt to read a line from the input file
+        if (getline(fptr_src, line)) {
+            treiber_stack_elim_buffer.push(atoi(line.c_str())); // Convert string to integer and push to stack
+            cout << thread_id << ">" << line.c_str() << endl;
+        } else {
+            // If the file reading is complete, update the atomic flag and exit the loop
+            read_complete.store(true, REL);
+            break;
+        }
+    }
+}
+
+
+void delete_treiber_elim(ofstream &fptr_out, int thread_id, int buffer_type) {
+    while (true) {
+        // Debugging/logging: Print the thread ID
+        cout << thread_id << endl;
+        // Check if the stack is not empty
+        if (treiber_stack_elim_buffer.top) {
+            int element;
+            bool state = treiber_stack_elim_buffer.pop(element);
+            // Pop an element from the stack and write it to the output file        
+            cout << thread_id << "<" << element << endl;
+            if(state) fptr_out << element << "\n";
+        } else {
+          // If the stack is empty but reading is not complete, continue waiting
+            if (!read_complete.load(ACQ)) {
+                continue;
+            }
+                // Exit the loop if reading is complete and the stack is empty
+            break;
+        }
+    }
+}
+
+
+
+void insert_sgl_elim(ifstream &fptr_src, int thread_id, int buffer_type) {
+    string line;
+    while (true) {
+        // Debugging/logging: Print the thread ID
+        cout << thread_id << endl;
+        // Attempt to read a line from the input file
+        if (getline(fptr_src, line)) {
+            // Insert the element into the specified buffer
+            if (buffer_type == STACK) {
+                stack_elim_buffer.push(atoi(line.c_str())); // Convert string to integer and push to stack
+            } else {
+                // Handle invalid buffer type
+                cout << "Incorrect buffer type" << endl;
+                return;
+            }
+        } else {
+            // If the file reading is complete, update the atomic flag and exit the loop
+            read_complete.store(true);
+            break;
+        }
+    }
+}
+
+void delete_sgl_elim(ofstream &fptr_out, int thread_id, int buffer_type) {
+    while (true) {
+        // Debugging/logging: Print the thread ID
+        cout << thread_id << endl;
+
+        // Handle stack buffer operations
+        if (buffer_type == STACK) {
+            // Check if the stack is not empty
+            if (stack_elim_buffer.top) {
+                int element;
+                bool state = stack_elim_buffer.pop(element);
+                // Pop an element from the stack and write it to the output file
+                if (state) fptr_out << element << "\n";
+            } else {
+                // If the stack is empty but reading is not complete, continue waiting
+                if (!read_complete.load()) {
+                    continue;
+                }
+                // Exit the loop if reading is complete and the stack is empty
+                break;
+            }
+        }else {
+            cout << "Incorrect buffer type" << endl;
+            return;
         }
     }
 }

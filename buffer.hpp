@@ -1,4 +1,5 @@
 #include <atomic> // Include atomic for potential atomic operations (not used directly here)
+#include <vector>
 
 // Memory order definitions for atomic operations
 #define SEQCST (memory_order_seq_cst)        // Sequentially consistent
@@ -57,4 +58,35 @@ class mns_queue{
         mns_queue();
         void insert(int element);
         bool remove(int &element);
+};
+
+enum states {
+    EMPTY,
+    PUSH,
+    POP
+};
+struct elimination_array{
+    atomic<int>status;
+    int element;
+    elimination_array(): status(EMPTY), element(0){}
+};
+typedef struct elimination_array elimination_array;
+
+class treiber_stack_elim{
+    public:
+        atomic<stack_node *> top;
+        vector<elimination_array> eli_arr; 
+        treiber_stack_elim(int num) : top(nullptr), eli_arr(num) {}
+        void push(int element);
+        bool pop(int &element);
+};
+
+class stack_elim{
+    public:
+        atomic<bool>lock;
+        atomic<stack_node *>top;    // Pointer to the top node of the stack
+        vector<elimination_array> eli_arr;
+        stack_elim(int num) : lock(false),top(nullptr), eli_arr(num) {}
+        void push(int element); // Push an element onto the stack
+        bool pop(int &element);              // Pop an element from the stack and return its value
 };
