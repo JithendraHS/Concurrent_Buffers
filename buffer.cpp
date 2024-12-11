@@ -96,15 +96,6 @@ void treiber_stack::push(int element) {
 // Pop an element from the Treiber stack (non-blocking)
 bool treiber_stack::pop(int &element) {
     stack_node *temp = top.load(ACQ);  // Load the current top node atomically
-    /*while(true){
-        if(!temp){
-            return false;
-        }
-        if(cas(top, temp, temp->next, ACQ_REL)){
-            break;
-        }
-         temp = top.load(ACQ);
-    }*/
     if(!temp){
         return false;
     }
@@ -121,128 +112,162 @@ bool treiber_stack::pop(int &element) {
 
 // Constructor for M&S queue (multi-threaded, lock-free queue)
 mns_queue::mns_queue() {
-    head = new queue_node(0, nullptr);  // Create a dummy head node
-    tail.store(head, RELAXED);  // Initialize the tail pointer atomically to the dummy node
+    queue_node *dummy = new queue_node(0, nullptr);
+    head.store(dummy, RELAXED);;  // Create a dummy head node
+    tail.store(dummy, RELAXED);  // Initialize the tail pointer atomically to the dummy node
 }
 
-// Insert an element at the end of the M&S queue
 void mns_queue::insert(int element) {
     queue_node *temp = new queue_node(element, nullptr);  // Create a new node
-    queue_node *last = tail.load(ACQ);  // Load the current tail node atomically
-    last->next = temp;  // Link the new node to the current tail
-    while (!cas(tail, last, temp, ACQ_REL)) {  // Attempt to update the tail pointer atomically
-        last = tail.load(ACQ);  // Reload the tail if CAS fails
-        last->next = temp;  // Re-link the new node to the current tail
-    }
-}
-
-// Remove an element from the front of the M&S queue
-bool mns_queue::remove(int &element) {
-    queue_node *temp = head.load(ACQ);  // Load the current head node atomically
-    if (!temp || !temp->next) {  // If the queue is empty
-        return false;
-    }
-    while (!cas(head, temp, temp->next, ACQ_REL)) {  // Attempt to update the head pointer atomically
-        temp = head.load(ACQ);  // Reload the head if CAS fails
-        if (!temp || !temp->next) {  // If the queue is empty
-            return false;
+    while (true) {
+        queue_node *last = tail.load(ACQ);               // Load the current tail atomically
+        queue_node *next = last->next;                  // Check the next pointer of the tail
+        
+        if (next == nullptr) {                          // If the tail's next is null, link the new node
+                last->next = temp;
+                // If successful, update the tail to point to the new node
+                cas(tail, last, temp, ACQ_REL);
+                cout << "I am here 1: "<< element << endl;
+                return;
+        } else {                                        // Tail is already being updated; advance the tail
+            cas(tail, last, next, ACQ_REL);
         }
     }
-    element = temp->next->element;  // Get the value from the removed node
-    delete temp;  // Free the memory of the removed node
-    return true;
 }
 
-// Push an element onto the Treiber stack with elimination (elimination-based stack)
+bool mns_queue::remove(int &element) {
+    while (true) {
+        queue_node *temp = head.load(ACQ);  // Load the current head atomically
+        if (!temp || !temp->next) {        // If the queue is empty
+            return false;
+        }
+        queue_node *next_node = temp->next;  // Get the next node
+        if (cas(head, temp, next_node, ACQ_REL)) {  // Attempt to update the head atomically
+            element = next_node->element;    // Retrieve the value from the next node
+            //delete temp;                     // Free the old head node
+            cout << "I am here 2" << endl;
+            return true;
+        }
+        // CAS failed, retry
+    }
+}
+
+
 void treiber_stack_elim::push(int element) {
     stack_node *temp = new stack_node(element, nullptr);
     temp->next = top.load(ACQ);  // Set the next pointer to the current top
-    while (!cas(top, temp->next, temp, ACQ_REL)) {  // Attempt to update the top pointer atomically
+
+    while (true) {
+        if (cas(top, temp->next, temp, ACQ_REL)) {
+            // Stack push successful
+            break;
+        }
+
         // Elimination logic: try to place the element in the elimination array
         random_device rd;
-        mt19937 gen(rd());
+        static thread_local mt19937 gen(rd());
         uniform_int_distribution<> distrib(0, eli_arr.size() - 1);
-        int index = distrib(gen);  // Randomly choose an index in the elimination array
-        if (cas(eli_arr[index].status, (int)EMPTY, (int)PUSH, ACQ_REL)) {  // Attempt to push the element
-            eli_arr[index].element = element;  // Store the element in the chosen array slot
-            this_thread::sleep_for(chrono::nanoseconds(2));  // Short delay for synchronization
-            if (cas(eli_arr[index].status, (int)POP, (int)EMPTY, ACQ_REL)) {  // Check if the element was consumed
-                delete temp;  // Delete the temporary node if consumed
-                break;
+        int index = distrib(gen);
+
+        // Attempt to reserve the slot for elimination
+        if (cas(eli_arr[index].status, (int)EMPTY, (int)PUSH, ACQ_REL)) {
+            eli_arr[index].element = element;  // Store the element
+            this_thread::sleep_for(chrono::nanoseconds(10));  // Allow time for a matching pop
+            if (cas(eli_arr[index].status, (int)POP, (int)EMPTY, ACQ_REL)) {
+                // Element was consumed, cleanup and exit
+                delete temp;
+                return;
             } else {
-                temp->next = top.load(ACQ);  // Reset the temporary node if elimination failed
-                eli_arr[index].status.store(EMPTY, REL);  // Reset the array slot status
+                // Elimination failed, retry stack push
+                eli_arr[index].status.store(EMPTY, REL);  // Reset the slot
             }
         }
+
+        // Update temp->next in case the stack top changed during elimination
+        temp->next = top.load(ACQ);
     }
 }
 
 
-// Pop an element from the Treiber stack with elimination
-bool treiber_stack_elim::pop(int &element) {
-    // Try to pop from the stack by accessing the top element atomically
-    stack_node* temp = top.load(ACQ);
-    
-    while (temp && !cas(top, temp, temp->next, ACQ_REL)) {
-        // If the stack is not empty, but the CAS (Compare-And-Swap) fails, attempt elimination
-        random_device rd;    // Random number generator seed
-        mt19937 gen(rd());   // Mersenne Twister random number generator
-        uniform_int_distribution<> distrib(0, eli_arr.size() - 1);  // Uniform distribution for index
-        int index = distrib(gen);  // Generate a random index for the elimination array
 
-        // Try placing the element into the elimination array (simulates the push operation)
-        element = eli_arr[index].element;
-        if (cas(eli_arr[index].status, (int)PUSH, (int)POP, ACQ_REL)) {
-            // If the element is successfully matched with a pop request, return true
+bool treiber_stack_elim::pop(int &element) {
+    stack_node* temp = top.load(ACQ);
+
+    while (true) {
+        if (temp == nullptr) {
+            // Stack is empty, check elimination array
+            random_device rd;    // Random number generator seed
+            static thread_local mt19937 gen(rd());
+            uniform_int_distribution<> distrib(0, eli_arr.size() - 1);
+            int index = distrib(gen);
+
+            // Attempt to match a PUSH operation in the elimination array
+            if (cas(eli_arr[index].status, (int)PUSH, (int)POP, ACQ_REL)) {
+                // Successfully matched a push; retrieve the element
+                element = eli_arr[index].element;
+                eli_arr[index].status.store(EMPTY, REL);  // Reset the slot
+                return true;
+            }
+            return false;  // No stack elements or elimination match
+        }
+
+        // Attempt to pop from the stack
+        if (cas(top, temp, temp->next, ACQ_REL)) {
+            element = temp->element;
+            delete temp;  // Free the memory
             return true;
         }
-    }
 
-    // If the stack pop was successful (element found), retrieve and delete it
-    element = temp->element;
-    delete temp;
-    return true;
+        // Retry stack pop or switch to elimination logic
+        temp = top.load(ACQ);  // Reload the top pointer for retry
+    }
 }
+
 
 // Push an element onto the stack with elimination
 void stack_elim::push(int element) {
     // Create a new stack node with the provided element
     stack_node* temp = new stack_node(element, nullptr);
 
+    static thread_local mt19937 gen(std::random_device{}()); // Thread-local random generator
+    uniform_int_distribution<> distrib(0, eli_arr.size() - 1); // Uniform distribution for index
+
     while (true) {
         // Attempt to acquire the lock for the stack operation
         if (cas(lock, false, true, ACQ_REL)) {
+            // Lock acquired, perform the stack push
             temp->next = top.load(ACQ);  // Atomically read the current top of the stack
             top.store(temp, REL);        // Update the top of the stack to point to the new node
             lock.store(false, REL);      // Release the lock after successful push operation
             return;
         }
 
-        // If the lock acquisition fails, attempt to use the elimination array
-        random_device rd;    // Random number generator seed
-        mt19937 gen(rd());   // Mersenne Twister random number generator
-        uniform_int_distribution<> distrib(0, eli_arr.size() - 1);  // Uniform distribution for index
-        int index = distrib(gen);  // Generate a random index for the elimination array
+        // Lock acquisition failed, attempt elimination
+        int index = distrib(gen); // Generate a random index for the elimination array
 
-        // Try placing the element into the elimination array for elimination-based pushing
+        // Try placing the element into the elimination array
         if (cas(eli_arr[index].status, (int)EMPTY, (int)PUSH, ACQ_REL)) {
             eli_arr[index].element = element;  // Set the element in the chosen slot
-            std::this_thread::sleep_for(std::chrono::nanoseconds(2)); // Short delay to simulate work
+            std::this_thread::sleep_for(std::chrono::nanoseconds(10)); // Short delay to simulate work
 
             // Check if the element was consumed by a corresponding pop operation
             if (cas(eli_arr[index].status, (int)POP, (int)EMPTY, ACQ_REL)) {
-                delete temp; // If eliminated successfully, delete the temporary node
+                delete temp; // Element successfully eliminated; clean up node
                 return;
             }
 
-            // If elimination failed, reset the slot status
+            // Reset the elimination slot if not consumed
             eli_arr[index].status.store(EMPTY, REL);
         }
     }
 }
 
+
 // Pop an element from the stack (using both lock and elimination)
 bool stack_elim::pop(int &element) {
+    static thread_local mt19937 gen(std::random_device{}()); // Thread-local random generator
+    uniform_int_distribution<> distrib(0, eli_arr.size() - 1); // Uniform distribution for index
+
     while (true) {
         // Attempt to acquire the lock for the stack pop operation
         if (cas(lock, false, true, ACQ_REL)) {
@@ -260,48 +285,48 @@ bool stack_elim::pop(int &element) {
             return true;
         }
 
-        // If lock acquisition fails, attempt elimination first
-        random_device rd;    // Random number generator seed
-        mt19937 gen(rd());   // Mersenne Twister random number generator
-        uniform_int_distribution<> distrib(0, eli_arr.size() - 1);  // Uniform distribution for index
+        // Lock acquisition failed, attempt elimination
         int index = distrib(gen);  // Generate a random index for the elimination array
 
-        // Try to match with a pop operation in the elimination array
+        // Attempt to match with a push operation in the elimination array
         if (cas(eli_arr[index].status, (int)EMPTY, (int)POP, ACQ_REL)) {
-            while (true) {
-                if (eli_arr[index].status.load(ACQ) == EMPTY) {
-                    // If the slot is empty, the element was successfully popped
-                    element = eli_arr[index].element;
-                    return true;
-                }
-                std::this_thread::yield();  // Yield the thread to allow others to proceed
+            std::this_thread::sleep_for(std::chrono::nanoseconds(2)); // Short delay to allow matching
+
+            // Check if an element was provided by a push operation
+            if (eli_arr[index].status.load(ACQ) == EMPTY) {
+                element = eli_arr[index].element; // Retrieve the matched element
+                return true;
             }
+
+            // Reset the slot to EMPTY if no match occurred
+            eli_arr[index].status.store(EMPTY, REL);
         }
     }
 }
 
-// Push an element onto the stack using a flat stack with elimination
+
 void stack_flat::push(int element) {
     stack_node* temp = new stack_node(element, nullptr);
+    static thread_local mt19937 gen(std::random_device{}()); // Thread-local random generator
+    uniform_int_distribution<> distrib(0, eli_arr.size() - 1);
 
     while (true) {
         // Attempt to acquire the lock for stack push operation
         if (cas(lock, false, true, ACQ_REL)) {
-            temp->next = top.load(ACQ);  // Atomically set the next pointer to the current top
-            top.store(temp, REL);        // Update the top of the stack
-
-            // Handle events in the elimination array to match PUSH with POP
+            // Lock acquired - process all entries in the elimination array
             for (int i = 0; i < (int)eli_arr.size(); i++) {
+                // Process elimination array slots in a lock-holder exclusive manner
                 if (eli_arr[i].status.load(ACQ) == PUSH) {
                     bool matched = false;
+                    // Attempt to match this PUSH with a POP in the array
                     for (int j = i + 1; j < (int)eli_arr.size(); j++) {
-                        // Try matching a PUSH with a POP in the elimination array
                         if (eli_arr[j].status.load(ACQ) == POP) {
-                            eli_arr[j].element = eli_arr[i].element;  // Resolve the PUSH-POP pair
-                            eli_arr[j].status.store(EMPTY, REL);  // Mark the slot as empty
-                            eli_arr[i].status.store(EMPTY, REL);  // Mark the slot as empty
+                            // Match found - resolve the PUSH-POP pair
+                            eli_arr[j].element = eli_arr[i].element;  // Transfer the element
+                            eli_arr[j].status.store(EMPTY, REL);      // Reset the POP slot
+                            eli_arr[i].status.store(EMPTY, REL);      // Reset the PUSH slot
                             matched = true;
-                            break; // Break to the next PUSH slot
+                            break;
                         }
                     }
                     // If no match found, push the element into the stack
@@ -309,18 +334,20 @@ void stack_flat::push(int element) {
                         stack_node* new_node = new stack_node(eli_arr[i].element, nullptr);
                         new_node->next = top.load(ACQ);  // Point the new node to the current top
                         top.store(new_node, REL);        // Update the top of the stack
-                        eli_arr[i].status.store(EMPTY, REL);  // Reset the slot
+                        eli_arr[i].status.store(EMPTY, REL);  // Reset the slot after push
                     }
-                } else if (eli_arr[i].status.load(ACQ) == POP) {
+                }
+                else if (eli_arr[i].status.load(ACQ) == POP) {
                     bool matched = false;
+                    // Attempt to match this POP with a PUSH in the array
                     for (int j = i + 1; j < (int)eli_arr.size(); j++) {
-                        // Try matching a POP with a PUSH in the elimination array
                         if (eli_arr[j].status.load(ACQ) == PUSH) {
-                            eli_arr[i].element = eli_arr[j].element;  // Resolve the POP-PUSH pair
-                            eli_arr[i].status.store(EMPTY, REL);  // Mark the slot as empty
-                            eli_arr[j].status.store(EMPTY, REL);  // Mark the slot as empty
+                            // Match found - resolve the POP-PUSH pair
+                            eli_arr[i].element = eli_arr[j].element;  // Transfer the element
+                            eli_arr[i].status.store(EMPTY, REL);      // Reset the POP slot
+                            eli_arr[j].status.store(EMPTY, REL);      // Reset the PUSH slot
                             matched = true;
-                            break; // Break to the next POP slot
+                            break;
                         }
                     }
                     // If no match found, pop from the stack
@@ -331,27 +358,26 @@ void stack_flat::push(int element) {
                             top.store(stack_top->next, REL);  // Update top
                             delete stack_top;  // Delete the old top node
                         }
-                        eli_arr[i].status.store(EMPTY, REL);  // Mark the slot as empty
+                        eli_arr[i].status.store(EMPTY, REL);  // Reset the slot after pop
                     }
                 }
             }
+
+            // Proceed with the regular push operation
+            temp->next = top.load(ACQ);  // Atomically set the next pointer to the current top
+            top.store(temp, REL);        // Update the top of the stack
 
             lock.store(false, REL);  // Release the lock
             return;
         }
 
-        // Attempt elimination if lock acquisition fails
-        random_device rd;    // Random number generator seed
-        mt19937 gen(rd());   // Mersenne Twister random number generator
-        uniform_int_distribution<> distrib(0, eli_arr.size() - 1);  // Uniform distribution for index
-        int index = distrib(gen);  // Generate a random index for the elimination array
-
-        // Try placing the element into the elimination array
+        // Elimination handling if the lock acquisition fails
+        int index = distrib(gen);  // Generate a random index
         if (cas(eli_arr[index].status, (int)EMPTY, (int)PUSH, ACQ_REL)) {
-            eli_arr[index].element = element;  // Set the element in the chosen slot
-            std::this_thread::sleep_for(std::chrono::nanoseconds(2)); // Brief wait
+            eli_arr[index].element = element;
+            std::this_thread::sleep_for(std::chrono::nanoseconds(2));
 
-            // Check if the element was successfully consumed
+            // If the element was consumed, exit the loop
             if (eli_arr[index].status.load(ACQ) == EMPTY) {
                 delete temp;  // Element was successfully eliminated
                 return;
@@ -360,7 +386,7 @@ void stack_flat::push(int element) {
     }
 }
 
-// Pop an element from the stack using flat stack with elimination
+
 bool stack_flat::pop(int &element) {
     while (true) {
         // Attempt to acquire the lock for stack pop operation
@@ -438,10 +464,10 @@ bool stack_flat::pop(int &element) {
                     element = eli_arr[index].element;
                     return true;
                 }
-                std::this_thread::yield();  // Yield the thread to allow others to proceed
             }
         }
     }
 }
+
 
 

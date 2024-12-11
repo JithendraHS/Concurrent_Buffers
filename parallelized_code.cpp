@@ -135,37 +135,44 @@ void insert_remove_treiber(vector<int>& input_data,
  * @param buffer_type - Specifies the type of buffer: QUEUE
  */
 void insert_remove_mns(vector<int>& input_data, 
-                             vector<int>& output_data, 
-                             int thread_id, 
-                             int buffer_type) {
+                       vector<int>& output_data, 
+                       int thread_id, 
+                       int buffer_type) {
     int push_index = 0;
     int pop_index = 0;
 
-    while (true) {
-#ifdef DEBUG
-        // Debugging/logging: Print the thread ID
-        cout << "Thread ID: " << thread_id << endl;
-#endif   
+    while (true) {  
         // Fetch the next index for insertion and check bounds
         push_index = fai(input_index, 1, ACQ_REL);
         if (push_index < (int)input_data.size()) {
             mns_queue_buffer.insert(input_data[push_index]);
+            //cout << "Thread ID>>: " << thread_id << "PUSH: "<< push_index<< endl;
         }
-        // Try to pop an element from the stack
+
+        // Try to pop an element from the queue
         int element;
         if (mns_queue_buffer.remove(element)) {
             // Fetch the next index for output and store the popped element
             pop_index = fai(output_index, 1, ACQ_REL);
             output_data[pop_index] = element;
+            //cout << "Thread ID<<: " << thread_id << "POP: "<< pop_index<< endl;
+        }else{
+            pop_index = output_index;
         }
-        // Check for the boundary condition: file end and stack empty
-        if (push_index >= (int)input_data.size()){
-            if(mns_queue_buffer.head.load(ACQ) != mns_queue_buffer.tail.load(ACQ)) {
-                break;
-            }   // Exit the loop when file is done and the stack is empty
+        //cout << "Thread ID<<: " << thread_id << "POP: "<< pop_index<< endl;
+        //cout << "Thread ID: " << thread_id << endl;
+        //cout << "Size :" << output_data.size() << endl;
+        // Check for boundary condition: input exhausted and queue empty
+        if (push_index >= (int)input_data.size() && pop_index >= (int)output_data.size() - 10) {
+            //#ifdef DEBUG
+        // Debugging/logging: Print the thread ID
+        //cout << "Thread ID: " << thread_id << endl;
+//#endif 
+            break;
         }
     }
 }
+
 
 /**
  * Function to insert elements into the Treiber stack (elimination) in a thread-safe manner.
@@ -190,6 +197,7 @@ void insert_remove_treiber_elim(vector<int>& input_data,
         push_index = fai(input_index, 1, ACQ_REL);
         if (push_index < (int)input_data.size()) {
             treiber_stack_elim_buffer.push(input_data[push_index]);
+            cout << "Thread ID>>: " << thread_id << "PUSH: "<< push_index<< endl;
         }
         // Try to pop an element from the stack
         int element;
@@ -197,10 +205,19 @@ void insert_remove_treiber_elim(vector<int>& input_data,
             // Fetch the next index for output and store the popped element
             pop_index = fai(output_index, 1, ACQ_REL);
             output_data[pop_index] = element;
-        }  
+            cout << "Thread ID<<: " << thread_id << "POP: "<< element<< endl;
+        }else{
+            pop_index = output_index;
+        }
+            
+        
         // Check for the boundary condition: file end and stack empty
-        if (push_index >= (int)input_data.size() && treiber_stack_elim_buffer.top == nullptr) {
-            break;  // Exit the loop when file is done and the stack is empty
+        if (push_index >= (int)input_data.size() && pop_index >= (int)output_data.size() - 10) {
+            //#ifdef DEBUG
+        // Debugging/logging: Print the thread ID
+            cout << "Thread exit: " << thread_id << endl;
+//#endif 
+            break;
         }
     }
 }
@@ -235,10 +252,16 @@ void insert_remove_sgl_elim(vector<int>& input_data,
             // Fetch the next index for output and store the popped element
             pop_index = fai(output_index, 1, ACQ_REL);
             output_data[pop_index] = element;
-        }  
+        }else{
+            pop_index = output_index;
+        }
         // Check for the boundary condition: file end and stack empty
-        if (push_index >= (int)input_data.size() && stack_elim_buffer.top == nullptr) {
-            break;  // Exit the loop when file is done and the stack is empty
+        if (push_index >= (int)input_data.size() && pop_index >= (int)output_data.size() - 10) {
+            //#ifdef DEBUG
+        // Debugging/logging: Print the thread ID
+            //cout << "Thread exit: " << thread_id << endl;
+//#endif 
+            break;
         }
     }
 }
@@ -273,10 +296,16 @@ void insert_remove_stack_flat(vector<int>& input_data,
             // Fetch the next index for output and store the popped element
             pop_index = fai(output_index, 1, ACQ_REL);
             output_data[pop_index] = element;
-        }  
+        }else{
+            pop_index = output_index;
+        }
         // Check for the boundary condition: file end and stack empty
-        if (push_index >= (int)input_data.size() && stack_flat_buffer.top == nullptr) {
-            break;  // Exit the loop when file is done and the stack is empty
+        if (push_index >= (int)input_data.size() && pop_index >= (int)output_data.size() - 10) {
+            //#ifdef DEBUG
+        // Debugging/logging: Print the thread ID
+            cout << "Thread exit: " << thread_id << endl;
+//#endif 
+            break;
         }
     }
 }
