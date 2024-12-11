@@ -1,21 +1,19 @@
 #include <fstream> // For input and output file stream operations
+#include <vector>
+
+
 using namespace std;
 
-// Function declarations for inserting and deleting elements from the stack or queue
-// These functions will be defined elsewhere, but the declarations tell the compiler about their signatures.
+
+void insert_remove_sgl_stack(vector<int> &input_data, vector<int> &output_data, int thread_id, int buffer_type);
+void insert_remove_sgl_queue(vector<int> &input_data, vector<int> &output_data, int thread_id, int buffer_type);
+void insert_remove_treiber(vector<int> &input_data, vector<int> &output_data, int thread_id, int buffer_type);
+
+void insert_remove_mns(vector<int> &input_data, vector<int> &output_data, int thread_id, int buffer_type);
+
+void insert_remove_treiber_elim(vector<int> &input_data, vector<int> &output_data, int thread_id, int buffer_type);
+
+void insert_remove_sgl_elim(vector<int> &input_data, vector<int> &output_data, int thread_id, int buffer_type);
 
 
-void insert_sgl(ifstream &fptr_src, int thread_id, int buffer_type); // Insert elements from the input file into the buffer (stack or queue)
-void delete_sgl(ofstream &fptr_out, int thread_id, int buffer_type); // Delete elements from the buffer (stack or queue) and write to the output file
-void insert_treiber(ifstream &fptr_src, int thread_id, int buffer_type);
-void delete_treiber(ofstream &fptr_out, int thread_id, int buffer_type);
-
-void insert_mns(ifstream &fptr_src, int thread_id, int buffer_type);
-void delete_mns(ofstream &fptr_out, int thread_id, int buffer_type);
-
-
-void insert_treiber_elim(ifstream &fptr_src, int thread_id, int buffer_type);
-void delete_treiber_elim(ofstream &fptr_out, int thread_id, int buffer_type);
-
-void insert_sgl_elim(ifstream &fptr_src, int thread_id, int buffer_type);
-void delete_sgl_elim(ofstream &fptr_out, int thread_id, int buffer_type);
+void insert_remove_stack_flat(vector<int> &input_data, vector<int> &output_data, int thread_id, int buffer_type);

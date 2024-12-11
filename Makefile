@@ -1,6 +1,6 @@
 #!/bin/sh
 CC = g++-11
-CFLAGS = -Wall -Werror --std=c++20 -pthread
+CFLAGS = -Wall -Werror --std=c++20 -pthread -fsanitize=address -fno-omit-frame-pointer
 
 SOURCES = concurrent_containers.cpp command_handling.cpp buffer.cpp parallelized_code.cpp
 OBJS = $(SOURCES:.cpp=.o)

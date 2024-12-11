@@ -18,144 +18,91 @@
 
 using namespace std;
 
-// Global vector to store dynamically allocated thread objects
 vector<thread*> threads;
+struct timespec startTime, endTime;
 
-// Main function
 int main(int argc, char *argv[]) {
-    // Create a command_param object to handle command-line arguments
     command_param *ch = new command_param();
-
-    // Parse command-line arguments and populate the command_param object
     int success = command_handle(argc, argv, ch);
     if (success == EXIT_FAILURE) {
-        return 0; // Exit if argument handling fails
+        return 0;
     }
 
-    // Open the input file for reading
     ifstream fptr_src(ch->source_file);
     if (!fptr_src) {
-        // Display an error message if the input file cannot be opened
         cout << "Failed to open " << ch->source_file << endl;
-        return EXIT_FAILURE; // Exit with failure status
+        return EXIT_FAILURE;
     }
 
-    // Open the output file for writing
     ofstream fptr_out(ch->out_file);
     if (!fptr_out) {
-        // Display an error message if the output file cannot be opened
         cout << "Failed to open " << ch->out_file << endl;
-        return EXIT_FAILURE; // Exit with failure status
+        return EXIT_FAILURE;
     }
 
-    // Resize the threads vector to hold NUM_THREADS thread pointers
     threads.resize(NUM_THREADS);
+    // Read data from the input file into a vector
+    vector<int> input_data;
+    vector<int> output_data;
+    string line;
+    while (getline(fptr_src, line)) {
+        input_data.push_back(atoi(line.c_str())); // Convert line to integer and add to the vector
+    }
+    output_data.resize(input_data.size() + 10); // adding extra size of 10 to see the abnormalities of stack
+    fill(output_data.begin(), output_data.end(), 0); // Fill all elements with 0
 
-    // Determine the buffer type based on the user-provided argument
     unsigned buffer_type;
+    // Set buffer type based on command-line arguments (stack or queue)
     if (ch->stack) {
-        buffer_type = STACK; // Use stack if specified
+        buffer_type = STACK;
     } else if (ch->queue) {
-        buffer_type = QUEUE; // Use queue if specified
+        buffer_type = QUEUE;
     } else {
-        buffer_type = STACK; // Default to stack
+        buffer_type = STACK;
     }
 
-    // Check if single global lock (sgl) is selected for stack or queue
-    if ((ch->stack && strcmp(ch->stack, "sgl") == 0) || 
-        (ch->queue && strcmp(ch->queue, "sgl") == 0)) {
-
-        // Create threads for inserting and deleting from the buffer
-        for (unsigned i = 0; i < NUM_THREADS; i++) {
-            if (!(i % 2)) {
-                // Odd threads perform insertion
-                threads[i] = new thread(insert_sgl, ref(fptr_src), i, buffer_type);
-            } else {
-                // Even threads perform deletion
-                threads[i] = new thread(delete_sgl, ref(fptr_out), i, buffer_type);
-            }
-        }
-        // Join all threads to ensure the main thread waits for them to complete
+    clock_gettime(CLOCK_MONOTONIC, &startTime);
     for (unsigned i = 0; i < NUM_THREADS; i++) {
-        threads[i]->join();  // Wait for the thread to finish
-        delete threads[i];   // Clean up the dynamically allocated thread
-    }
-    }else if((ch->stack && strcmp(ch->stack, "treiber") == 0)){
-         // Create threads for inserting and deleting from the buffer
-        for (unsigned i = 0; i < NUM_THREADS; i++) {
-            if (!(i % 2)) {
-                // Odd threads perform insertion
-                threads[i] = new thread(insert_treiber, ref(fptr_src), i, buffer_type);
-            } else {
-                // Even threads perform deletion
-                threads[i] = new thread(delete_treiber, ref(fptr_out), i, buffer_type);
-            }
-        }
-       // Join all threads to ensure the main thread waits for them to complete
-    for (unsigned i = 0; i < NUM_THREADS; i++) {
-        threads[i]->join();  // Wait for the thread to finish
-        delete threads[i];   // Clean up the dynamically allocated thread
-    }
-    }else if((ch->queue && strcmp(ch->queue, "mns") == 0)){
-         // Create threads for inserting and deleting from the buffer
-        for (unsigned i = 0; i < NUM_THREADS; i++) {
-            if (!(i % 2)) {
-                // Odd threads perform insertion
-                threads[i] = new thread(insert_mns, ref(fptr_src), i, buffer_type);
-            } else {
-                // Even threads perform deletion
-                threads[i] = new thread(delete_mns, ref(fptr_out), i, buffer_type);
-            }
-        }
-       // Join all threads to ensure the main thread waits for them to complete
-    for (unsigned i = 0; i < NUM_THREADS; i++) {
-        threads[i]->join();  // Wait for the thread to finish
-        delete threads[i];   // Clean up the dynamically allocated thread
-    }
-    }else if((ch->stack && strcmp(ch->stack, "treiber_elim") == 0)){
-         // Create threads for inserting and deleting from the buffer
-        for (unsigned i = 0; i < NUM_THREADS; i++) {
-            if (!(i % 2)) {
-                // Odd threads perform insertion
-                threads[i] = new thread(insert_treiber_elim, ref(fptr_src), i, buffer_type);
-            } else {
-                // Even threads perform deletion
-                threads[i] = new thread(delete_treiber_elim, ref(fptr_out), i, buffer_type);
-            }
-        }
-       // Join all threads to ensure the main thread waits for them to complete
-       
-    for (unsigned i = 0; i < NUM_THREADS; i++) {
-        //if (!(i % 2)) {
-            threads[i]->join();  // Wait for the thread to finish
-            delete threads[i];   // Clean up the dynamically allocated thread
-        //}
-    }
-    }else if ((ch->stack && strcmp(ch->stack, "sgl_elim") == 0)) {
-        cout<< "I'm here!!!"<<endl;
-        // Create threads for inserting and deleting from the buffer
-        for (unsigned i = 0; i < NUM_THREADS; i++) {
-            if (!(i % 2)) {
-                // Odd threads perform insertion
-                threads[i] = new thread(insert_sgl_elim, ref(fptr_src), i, buffer_type);
-            } else {
-                // Even threads perform deletion
-                threads[i] = new thread(delete_sgl_elim, ref(fptr_out), i, buffer_type);
-            }
-        }
-        // Join all threads to ensure the main thread waits for them to complete
-    for (unsigned i = 0; i < NUM_THREADS; i++) {
-        threads[i]->join();  // Wait for the thread to finish
-        delete threads[i];   // Clean up the dynamically allocated thread
+    // Handle different buffer configurations based on the command-line input
+    if ((ch->stack && strcmp(ch->stack, "sgl") == 0)) {
+          threads[i] = new thread(insert_remove_sgl_stack, ref(input_data), ref(output_data), i, buffer_type);
+    }else if ((ch->queue && strcmp(ch->queue, "sgl") == 0)) {
+          threads[i] = new thread(insert_remove_sgl_queue, ref(input_data), ref(output_data), i, buffer_type);
+    } else if((ch->stack && strcmp(ch->stack, "treiber") == 0)){
+          threads[i] = new thread(insert_remove_treiber, ref(input_data), ref(output_data), i, buffer_type);
+    } else if((ch->queue && strcmp(ch->queue, "mns") == 0)){
+          threads[i] = new thread(insert_remove_mns, ref(input_data), ref(output_data), i, buffer_type);
+    } else if((ch->stack && strcmp(ch->stack, "treiber_elim") == 0)){
+          //cout << "I am here"<< endl;
+          threads[i] = new thread(insert_remove_treiber_elim, ref(input_data), ref(output_data), i, buffer_type);
+    } else if ((ch->stack && strcmp(ch->stack, "sgl_elim") == 0)) {
+         threads[i] = new thread(insert_remove_sgl_elim, ref(input_data), ref(output_data), i, buffer_type);
+    } else if ((ch->stack && strcmp(ch->stack, "stack_flat") == 0)) {
+        threads[i] = new thread(insert_remove_stack_flat, ref(input_data), ref(output_data), i, buffer_type);
+            
     }
     }
 
-    // Close input and output files
-    fptr_src.close(); // Close the input file
-    fptr_out.close(); // Close the output file
+    // Wait for all threads to finish
+    for (unsigned i = 0; i < NUM_THREADS; i++) {
+        threads[i]->join();
+        delete threads[i];
+    }
+    clock_gettime(CLOCK_MONOTONIC, &endTime);
+    unsigned long long elapsed_ns;
+    elapsed_ns = (endTime.tv_sec - startTime.tv_sec) * 1000000000 +      (endTime.tv_nsec - startTime.tv_nsec);
+    printf("Elapsed (ns): %llu\n", elapsed_ns);
+    double elapsed_s = ((double)elapsed_ns) / 1000000000.0;
+    printf("Elapsed (s): %lf\n", elapsed_s);
+    // Write the sorted data to the output file
+    for (auto i = output_data.begin(); i < output_data.end(); ++i) {
+        fptr_out << *i << "\n";
+    }
+    fptr_src.close();
+    fptr_out.close();
 
-    // Indicate that the program has completed successfully
     cout << "Done!!!" << endl;
 
-    return 0; // Return success
+    return 0;
 }
+

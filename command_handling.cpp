@@ -68,8 +68,8 @@ int command_handle(int argc, char *argv[], command_param * ch) {
                 cout << endl;
                 break;
             case 'h':  // Display usage information
-                cout << "Usage: ./container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,mns>] [--pop=<pop_count>]"
-                     << endl;
+                cout << "Usage: ./container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber,sgl_elim,treiber_elim,stack_flat>] [--queue=<sgl,mns>]"
+                     << endl; // not enough time to implement [--pop=<pop_count>]
                 cout << "-i : file containing elements to insert into stack or queue" << endl;
                 cout << "-o : file to store remaining elements in stack or queue" << endl;
                 cout << "-t : Number of threads for parallelism" << endl;
@@ -79,8 +79,8 @@ int command_handle(int argc, char *argv[], command_param * ch) {
                 return EXIT_FAILURE;  // Exit the program with failure status
                 break;
             default:  // If an unknown option is passed, display usage information
-                cout << "Usage: container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,mns>] [--pop=<pop_count>]"
-                     << endl;
+                cout << "Usage: ./container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber,sgl_elim,treiber_elim,stack_flat>] [--queue=<sgl,mns>]"
+                     << endl; // not enough time to implement [--pop=<pop_count>]
                 return EXIT_FAILURE;  // Exit with failure status
         }
     }
@@ -88,8 +88,8 @@ int command_handle(int argc, char *argv[], command_param * ch) {
     // Validate that the required parameters are specified
     if (!ch->source_file || (!ch->stack && !ch->queue)) {
         cout << "All parameters not specified correctly, please check and try again!!!" << endl;
-        cout << "Usage: " << argv[0]
-             << " container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber>] [--queue=<sgl,mns>] [--pop=<pop_count>]" << endl;
+        cout << "Usage: ./container [-i source.txt] [-o out.txt] [-t NUMTHREADS] [--stack=<sgl,treiber,sgl_elim,treiber_elim,stack_flat>] [--queue=<sgl,mns>]"
+                     << endl; // not enough time to implement [--pop=<pop_count>]
         return EXIT_FAILURE;  // Exit with failure status
     }
 

@@ -3,8 +3,12 @@
 #include <mutex>
 #include <iostream>
 
-// Mutex to enforce mutual exclusion for shared resources
-mutex sg_lock;
+
+template <typename T>
+T fai(atomic<T> &status, T amount, memory_order mem_order) {
+    // Atomically add 'amount' to 'status' and return the previous value
+    return status.fetch_add(amount, mem_order);
+}
 
 // Global stack and queue buffers for storing data
 stack stack_buffer;
@@ -17,266 +21,262 @@ treiber_stack_elim treiber_stack_elim_buffer(8);
 
 stack_elim stack_elim_buffer(8);
 
+stack_flat stack_flat_buffer(8);
+
+atomic<int> input_index = 0;
+atomic<int> output_index = 0;
+
 // Atomic flag to indicate whether the file reading is complete
 atomic<bool> read_complete = false;
 
+void insert_remove_sgl_stack(vector<int>& input_data, 
+                             vector<int>& output_data, 
+                             int thread_id, 
+                             int buffer_type)  {
+    int push_index = 0;
+    int pop_index = 0;
+
+    while (true) {
+#ifdef DEBUG
+        // Debugging/logging: Print the thread ID
+        cout << "Thread ID: " << thread_id << endl;
+#endif
+
+        // Fetch the next index for insertion and check bounds
+        push_index = fai(input_index, 1, ACQ_REL);
+        if (push_index < (int)input_data.size()) {
+            stack_buffer.push(input_data[push_index]); // Push the element to the stack
+        }
+
+        // Try to pop an element from the stack
+        int element;
+        if (stack_buffer.pop(element)) {
+            // Fetch the next index for output and store the popped element
+            pop_index = fai(output_index, 1, ACQ_REL);
+            output_data[pop_index] = element;
+        }
+
+        // Boundary condition: Check if all input is processed and stack is empty
+        if (push_index >= (int)input_data.size() && stack_buffer.top == nullptr) {
+            break; // Exit the loop
+        }
+    }
+}
+
+
+void insert_remove_sgl_queue(vector<int>& input_data, 
+                             vector<int>& output_data, 
+                             int thread_id, 
+                             int buffer_type) {
+    int push_index = 0;
+    int pop_index = 0;
+
+    while (true) {
+#ifdef DEBUG
+        // Debugging/logging: Print the thread ID
+        cout << "Thread ID: " << thread_id << endl;
+#endif
+        // Fetch the next index for insertion and check bounds
+        push_index = fai(input_index, 1, ACQ_REL);
+        if (push_index < (int)input_data.size()) {
+            queue_buffer.insert(input_data[push_index]);
+        }
+        // Try to pop an element from the stack
+        int element;
+        if (queue_buffer.remove(element)) {
+            // Fetch the next index for output and store the popped element
+            pop_index = fai(output_index, 1, ACQ_REL);
+            output_data[pop_index] = element;
+        }
+        // Check for the boundary condition: file end and queue empty
+        if (push_index >= (int)input_data.size() && queue_buffer.head == nullptr) {
+            break;  // Exit the loop when file is done and the queue is empty
+        }
+    }
+}
+
+void insert_remove_treiber(vector<int>& input_data, 
+                             vector<int>& output_data, 
+                             int thread_id, 
+                             int buffer_type)  {
+    int push_index = 0;
+    int pop_index = 0;
+
+    while (true) {
+#ifdef DEBUG
+        // Debugging/logging: Print the thread ID
+        cout << "Thread ID: " << thread_id << endl;
+#endif
+        // Fetch the next index for insertion and check bounds
+        push_index = fai(input_index, 1, ACQ_REL);
+        if (push_index < (int)input_data.size()) {
+            trieber_stack_buffer.push(input_data[push_index]);
+        }
+        // Try to pop an element from the stack
+        int element;
+        if (trieber_stack_buffer.pop(element)) {
+            // Fetch the next index for output and store the popped element
+            pop_index = fai(output_index, 1, ACQ_REL);
+            output_data[pop_index] = element;
+        }
+        
+        // Check for the boundary condition: file end and stack empty
+        if (push_index >= (int)input_data.size() && trieber_stack_buffer.top == nullptr) {
+            break;  // Exit the loop when file is done and the stack is empty
+        }
+    }
+}
+
 /**
- * Function to insert elements into a stack or queue in a thread-safe manner.
+ * Function to insert elements into a lock-free MNS queue in a thread-safe manner.
  * 
  * @param fptr_src - Input file stream containing elements to insert
  * @param thread_id - ID of the thread performing the operation (for debugging/logging)
- * @param buffer_type - Specifies the type of buffer: STACK or QUEUE
+ * @param buffer_type - Specifies the type of buffer: QUEUE
  */
-void insert_sgl(ifstream &fptr_src, int thread_id, int buffer_type) {
-    string line;
-    while (true) {
-        // Lock the mutex to ensure exclusive access to shared resources
-        lock_guard<mutex> lock(sg_lock);
-        
-        // Debugging/logging: Print the thread ID
-        cout << thread_id << endl;
+void insert_remove_mns(vector<int>& input_data, 
+                             vector<int>& output_data, 
+                             int thread_id, 
+                             int buffer_type) {
+    int push_index = 0;
+    int pop_index = 0;
 
-        // Attempt to read a line from the input file
-        if (getline(fptr_src, line)) {
-            // Insert the element into the specified buffer
-            if (buffer_type == STACK) {
-                stack_buffer.push(atoi(line.c_str())); // Convert string to integer and push to stack
-            } else if (buffer_type == QUEUE) {
-                queue_buffer.insert(atoi(line.c_str())); // Convert string to integer and insert to queue
-            } else {
-                // Handle invalid buffer type
-                cout << "Incorrect buffer type" << endl;
-                return;
-            }
-        } else {
-            // If the file reading is complete, update the atomic flag and exit the loop
-            read_complete.store(true);
-            break;
+    while (true) {
+#ifdef DEBUG
+        // Debugging/logging: Print the thread ID
+        cout << "Thread ID: " << thread_id << endl;
+#endif   
+        // Fetch the next index for insertion and check bounds
+        push_index = fai(input_index, 1, ACQ_REL);
+        if (push_index < (int)input_data.size()) {
+            mns_queue_buffer.insert(input_data[push_index]);
+        }
+        // Try to pop an element from the stack
+        int element;
+        if (mns_queue_buffer.remove(element)) {
+            // Fetch the next index for output and store the popped element
+            pop_index = fai(output_index, 1, ACQ_REL);
+            output_data[pop_index] = element;
+        }
+        // Check for the boundary condition: file end and stack empty
+        if (push_index >= (int)input_data.size()){
+            if(mns_queue_buffer.head.load(ACQ) != mns_queue_buffer.tail.load(ACQ)) {
+                break;
+            }   // Exit the loop when file is done and the stack is empty
         }
     }
 }
 
 /**
- * Function to remove elements from a stack or queue in a thread-safe manner.
+ * Function to insert elements into the Treiber stack (elimination) in a thread-safe manner.
  * 
- * @param fptr_out - Output file stream to write removed elements
+ * @param fptr_src - Input file stream containing elements to insert
  * @param thread_id - ID of the thread performing the operation (for debugging/logging)
- * @param buffer_type - Specifies the type of buffer: STACK or QUEUE
+ * @param buffer_type - Specifies the type of buffer: STACK
  */
-void delete_sgl(ofstream &fptr_out, int thread_id, int buffer_type) {
+void insert_remove_treiber_elim(vector<int>& input_data, 
+                             vector<int>& output_data, 
+                             int thread_id, 
+                             int buffer_type) {
+    int push_index = 0;
+    int pop_index = 0;
+
     while (true) {
-        // Lock the mutex to ensure exclusive access to shared resources
-        lock_guard<mutex> lock(sg_lock);
-
+#ifdef DEBUG
         // Debugging/logging: Print the thread ID
-        cout << thread_id << endl;
-
-        // Handle stack buffer operations
-        if (buffer_type == STACK) {
-            // Check if the stack is not empty
-            if (stack_buffer.top) {
-                int element;
-                bool state = stack_buffer.pop(element);
-                // Pop an element from the stack and write it to the output file
-                if (state) fptr_out << element << "\n";
-            } else {
-                // If the stack is empty but reading is not complete, continue waiting
-                if (!read_complete.load()) {
-                    continue;
-                }
-                // Exit the loop if reading is complete and the stack is empty
-                break;
-            }
+        cout << "Thread ID: " << thread_id << endl;
+#endif   
+        // Fetch the next index for insertion and check bounds
+        push_index = fai(input_index, 1, ACQ_REL);
+        if (push_index < (int)input_data.size()) {
+            treiber_stack_elim_buffer.push(input_data[push_index]);
         }
-        // Handle queue buffer operations
-        else if (buffer_type == QUEUE) {
-            // Check if the queue is not empty
-            if (queue_buffer.head) {
-                int element;
-                bool state = queue_buffer.remove(element);
-                // Remove an element from the queue and write it to the output file
-                if(state) fptr_out << element << "\n";
-            } else {
-                // If the queue is empty but reading is not complete, continue waiting
-                if (!read_complete.load()) {
-                    continue;
-                }
-                // Exit the loop if reading is complete and the queue is empty
-                break;
-            }
-        }
-        // Handle invalid buffer type
-        else {
-            cout << "Incorrect buffer type" << endl;
-            return;
+        // Try to pop an element from the stack
+        int element;
+        if (treiber_stack_elim_buffer.pop(element)) {
+            // Fetch the next index for output and store the popped element
+            pop_index = fai(output_index, 1, ACQ_REL);
+            output_data[pop_index] = element;
+        }  
+        // Check for the boundary condition: file end and stack empty
+        if (push_index >= (int)input_data.size() && treiber_stack_elim_buffer.top == nullptr) {
+            break;  // Exit the loop when file is done and the stack is empty
         }
     }
 }
 
+/**
+ * Function to insert elements into a stack with elimination in a thread-safe manner.
+ * 
+ * @param fptr_src - Input file stream containing elements to insert
+ * @param thread_id - ID of the thread performing the operation (for debugging/logging)
+ * @param buffer_type - Specifies the type of buffer: STACK
+ */
+void insert_remove_sgl_elim(vector<int>& input_data, 
+                             vector<int>& output_data, 
+                             int thread_id, 
+                             int buffer_type) {
+    int push_index = 0;
+    int pop_index = 0;
 
-void insert_treiber(ifstream &fptr_src, int thread_id, int buffer_type) {
-    string line;
-    while (true) {        
-        // Debugging/logging: Print the thread ID
-        cout << thread_id << endl;
-        // Attempt to read a line from the input file
-        if (getline(fptr_src, line)) {
-            trieber_stack_buffer.push(atoi(line.c_str())); // Convert string to integer and push to stack
-        } else {
-            // If the file reading is complete, update the atomic flag and exit the loop
-            read_complete.store(true, REL);
-            break;
-        }
-    }
-}
-
-
-void delete_treiber(ofstream &fptr_out, int thread_id, int buffer_type) {
     while (true) {
+#ifdef DEBUG
         // Debugging/logging: Print the thread ID
-        cout << thread_id << endl;
-        // Check if the stack is not empty
-        if (trieber_stack_buffer.top) {
-            int element;
-            bool state = trieber_stack_buffer.pop(element);
-            // Pop an element from the stack and write it to the output file
-            if(state) fptr_out << element << "\n";
-        } else {
-          // If the stack is empty but reading is not complete, continue waiting
-            if (!read_complete.load(ACQ)) {
-                continue;
-            }
-                // Exit the loop if reading is complete and the stack is empty
-            break;
+        cout << "Thread ID: " << thread_id << endl;
+#endif   
+        // Fetch the next index for insertion and check bounds
+        push_index = fai(input_index, 1, ACQ_REL);
+        if (push_index < (int)input_data.size()) {
+            stack_elim_buffer.push(input_data[push_index]);
+        }
+        // Try to pop an element from the stack
+        int element;
+        if (stack_elim_buffer.pop(element)) {
+            // Fetch the next index for output and store the popped element
+            pop_index = fai(output_index, 1, ACQ_REL);
+            output_data[pop_index] = element;
+        }  
+        // Check for the boundary condition: file end and stack empty
+        if (push_index >= (int)input_data.size() && stack_elim_buffer.top == nullptr) {
+            break;  // Exit the loop when file is done and the stack is empty
         }
     }
 }
 
-void insert_mns(ifstream &fptr_src, int thread_id, int buffer_type) {
-    string line;
-    while (true) {        
-        // Attempt to read a line from the input file
-        if (getline(fptr_src, line)) {
-            mns_queue_buffer.insert(atoi(line.c_str())); // Convert string to integer and push to stack
-            // Debugging/logging: Print the thread ID
-            cout << thread_id << ">" << line.c_str() << endl;
-        } else {
-            // If the file reading is complete, update the atomic flag and exit the loop
-            read_complete.store(true, REL);
-            break;
-        }
-    }
-}
+/**
+ * Function to insert elements into a flat stack in a thread-safe manner.
+ * 
+ * @param fptr_src - Input file stream containing elements to insert
+ * @param thread_id - ID of the thread performing the operation (for debugging/logging)
+ * @param buffer_type - Specifies the type of buffer: STACK
+ */
+void insert_remove_stack_flat(vector<int>& input_data, 
+                             vector<int>& output_data, 
+                             int thread_id, 
+                             int buffer_type) {
+    int push_index = 0;
+    int pop_index = 0;
 
-void delete_mns(ofstream &fptr_out, int thread_id, int buffer_type) {
     while (true) {
-        // Check if the stack is not empty
-        if (mns_queue_buffer.head.load(ACQ) != mns_queue_buffer.tail.load(ACQ)) {
-            int element;
-            bool state = mns_queue_buffer.remove(element);
-            // Pop an element from the stack and write it to the output file 
-            cout << thread_id << "<" << element << endl;
-            if(state) fptr_out << element << "\n";
-        } else {
-          // If the stack is empty but reading is not complete, continue waiting
-            if (!read_complete.load(ACQ)) {
-                continue;
-            }
-                // Exit the loop if reading is complete and the stack is empty
-            break;
-        }
-    }
-}
-
-
-
-void insert_treiber_elim(ifstream &fptr_src, int thread_id, int buffer_type) {
-    string line;
-    while (true) {        
-        // Attempt to read a line from the input file
-        if (getline(fptr_src, line)) {
-            treiber_stack_elim_buffer.push(atoi(line.c_str())); // Convert string to integer and push to stack
-            cout << thread_id << ">" << line.c_str() << endl;
-        } else {
-            // If the file reading is complete, update the atomic flag and exit the loop
-            read_complete.store(true, REL);
-            break;
-        }
-    }
-}
-
-
-void delete_treiber_elim(ofstream &fptr_out, int thread_id, int buffer_type) {
-    while (true) {
+#ifdef DEBUG
         // Debugging/logging: Print the thread ID
-        cout << thread_id << endl;
-        // Check if the stack is not empty
-        if (treiber_stack_elim_buffer.top) {
-            int element;
-            bool state = treiber_stack_elim_buffer.pop(element);
-            // Pop an element from the stack and write it to the output file        
-            cout << thread_id << "<" << element << endl;
-            if(state) fptr_out << element << "\n";
-        } else {
-          // If the stack is empty but reading is not complete, continue waiting
-            if (!read_complete.load(ACQ)) {
-                continue;
-            }
-                // Exit the loop if reading is complete and the stack is empty
-            break;
+        cout << "Thread ID: " << thread_id << endl;
+#endif   
+        // Fetch the next index for insertion and check bounds
+        push_index = fai(input_index, 1, ACQ_REL);
+        if (push_index < (int)input_data.size()) {
+            stack_flat_buffer.push(input_data[push_index]);
         }
-    }
-}
-
-
-
-void insert_sgl_elim(ifstream &fptr_src, int thread_id, int buffer_type) {
-    string line;
-    while (true) {
-        // Debugging/logging: Print the thread ID
-        cout << thread_id << endl;
-        // Attempt to read a line from the input file
-        if (getline(fptr_src, line)) {
-            // Insert the element into the specified buffer
-            if (buffer_type == STACK) {
-                stack_elim_buffer.push(atoi(line.c_str())); // Convert string to integer and push to stack
-            } else {
-                // Handle invalid buffer type
-                cout << "Incorrect buffer type" << endl;
-                return;
-            }
-        } else {
-            // If the file reading is complete, update the atomic flag and exit the loop
-            read_complete.store(true);
-            break;
-        }
-    }
-}
-
-void delete_sgl_elim(ofstream &fptr_out, int thread_id, int buffer_type) {
-    while (true) {
-        // Debugging/logging: Print the thread ID
-        cout << thread_id << endl;
-
-        // Handle stack buffer operations
-        if (buffer_type == STACK) {
-            // Check if the stack is not empty
-            if (stack_elim_buffer.top) {
-                int element;
-                bool state = stack_elim_buffer.pop(element);
-                // Pop an element from the stack and write it to the output file
-                if (state) fptr_out << element << "\n";
-            } else {
-                // If the stack is empty but reading is not complete, continue waiting
-                if (!read_complete.load()) {
-                    continue;
-                }
-                // Exit the loop if reading is complete and the stack is empty
-                break;
-            }
-        }else {
-            cout << "Incorrect buffer type" << endl;
-            return;
+        // Try to pop an element from the stack
+        int element;
+        if (stack_flat_buffer.pop(element)) {
+            // Fetch the next index for output and store the popped element
+            pop_index = fai(output_index, 1, ACQ_REL);
+            output_data[pop_index] = element;
+        }  
+        // Check for the boundary condition: file end and stack empty
+        if (push_index >= (int)input_data.size() && stack_flat_buffer.top == nullptr) {
+            break;  // Exit the loop when file is done and the stack is empty
         }
     }
 }
