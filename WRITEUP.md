@@ -207,6 +207,7 @@ Success: Output matches input
 | SGL elimination |  1438 |    73     |
 | Treiber elimination |  1577 |    69     |
 | flat combining |  1722 |    63     |
+
 ![Stack_runtime](https://github.com/user-attachments/assets/d6e9436f-b369-43d1-af01-fb72ca001e9e)
 ![Stack_cache](https://github.com/user-attachments/assets/8b625fd2-08c8-4617-a0a9-91a41ddde317)
 
