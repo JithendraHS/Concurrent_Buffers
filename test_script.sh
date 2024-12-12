@@ -12,10 +12,10 @@ input_files=("1K_entry.txt")
 num_threads=(4)
 #1 2 3 4 8 16
 
-#stack_types=("sgl")
+stack_types=("sgl" "treiber" "sgl_elim" "treiber_elim" "stack_flat")
 #"sgl" "treiber" "sgl_elim" "treiber_elim" "stack_flat"
 
-queue_types=("sgl")
+queue_types=("sgl" "mns")
 #"sgl" "mns"
 
 # Iterate over input files
@@ -25,7 +25,7 @@ for input_file in "${input_files[@]}"; do
     # Execute for stack types
     for stack in "${stack_types[@]}"; do
       echo "Running: ./container -i $input_file -o out.txt -t $num --stack=$stack"
-      ./container -i "$input_file" -o out.txt -t "$num" --stack="$stack"
+      perf stat -e cache-misses -e cache-references -e page-faults -e branch-instructions -e branch-misses ./container -i "$input_file" -o out.txt -t "$num" --stack="$stack"
       
       echo "Sorting out.txt"
       wc -l out.txt
@@ -47,7 +47,7 @@ for input_file in "${input_files[@]}"; do
     # Execute for queue types
     for queue in "${queue_types[@]}"; do
       echo "Running: ./container -i $input_file -o out.txt -t $num --queue=$queue"
-      ./container -i "$input_file" -o out.txt -t "$num" --queue="$queue"
+      perf stat -e cache-misses -e cache-references -e page-faults -e branch-instructions -e branch-misses ./container -i "$input_file" -o out.txt -t "$num" --queue="$queue"
       
       echo "Sorting out.txt"
       wc -l out.txt

@@ -127,7 +127,7 @@ void mns_queue::insert(int element) {
                 last->next = temp;
                 // If successful, update the tail to point to the new node
                 cas(tail, last, temp, ACQ_REL);
-                cout << "I am here 1: "<< element << endl;
+                //cout << "I am here 1: "<< element << endl;
                 return;
         } else {                                        // Tail is already being updated; advance the tail
             cas(tail, last, next, ACQ_REL);
@@ -145,7 +145,7 @@ bool mns_queue::remove(int &element) {
         if (cas(head, temp, next_node, ACQ_REL)) {  // Attempt to update the head atomically
             element = next_node->element;    // Retrieve the value from the next node
             //delete temp;                     // Free the old head node
-            cout << "I am here 2" << endl;
+            //cout << "I am here 2" << endl;
             return true;
         }
         // CAS failed, retry
