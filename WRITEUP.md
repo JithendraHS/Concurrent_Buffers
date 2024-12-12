@@ -207,6 +207,8 @@ Success: Output matches input
 | SGL elimination |  1438 |    73     |
 | Treiber elimination |  1577 |    69     |
 | flat combining |  1722 |    63     |
+![Stack_runtime](https://github.com/user-attachments/assets/d6e9436f-b369-43d1-af01-fb72ca001e9e)
+![Stack_cache](https://github.com/user-attachments/assets/8b625fd2-08c8-4617-a0a9-91a41ddde317)
 
 ### Performance comparison
 - As the number of threads increases, the runtime for all mechanisms increases due to conctext switching and memory contention. This is especially noticeable as we move from simpler mechanisms like Single Global Lock (SGL) to advanced techniques like Flat Combining
@@ -251,6 +253,9 @@ Success: Output matches input
 |:--------------:|:-----:|:-----------:|
 | SGL |  1498 |        70 |
 | M&S  |  22899 |        74 |
+
+![Queue_runtime](https://github.com/user-attachments/assets/9acc2de2-e5bf-48de-b687-df3898a8c164)
+![Queue_cache](https://github.com/user-attachments/assets/6c84850c-a30c-418b-985b-00a6311441f9)
 
 ### Performance comparison
 - The runtime of both SGL and M&S increases as the number of threads grows for the same test sample. This behavior highlights the effects of contention, context-switching overhead, and thread spinning when comparing head and tail nodes in the queue buffer.
